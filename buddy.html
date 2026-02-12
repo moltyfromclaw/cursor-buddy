@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Cursor Buddy</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      overflow: hidden;
+      -webkit-app-region: no-drag;
+    }
+    
+    .buddy-container {
+      position: relative;
+      width: 260px;
+      padding: 12px 16px;
+      background: rgba(20, 20, 25, 0.92);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      animation: fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    
+    .buddy-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .buddy-avatar {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #6B46C1, #00D9FF);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    
+    .buddy-name {
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0.9;
+    }
+    
+    .buddy-status {
+      margin-left: auto;
+      width: 6px;
+      height: 6px;
+      background: #10B981;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .buddy-message {
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    
+    .buddy-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    
+    .buddy-container:hover .buddy-actions {
+      opacity: 1;
+    }
+    
+    .buddy-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 6px;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .buddy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    
+    /* Pointer triangle */
+    .buddy-container::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 20px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-right: 8px solid rgba(20, 20, 25, 0.92);
+    }
+  </style>
+</head>
+<body>
+  <div class="buddy-container" id="container">
+    <div class="buddy-header">
+      <div class="buddy-avatar">🦞</div>
+      <span class="buddy-name">Molty</span>
+      <div class="buddy-status"></div>
+    </div>
+    <div class="buddy-message" id="message">
+      Hey! I'm your cursor buddy. I'll pop up with suggestions as you work. Press <kbd>⌘⇧B</kbd> to hide me.
+    </div>
+    <div class="buddy-actions">
+      <button class="buddy-btn" onclick="captureAndAnalyze()">📸 What's this?</button>
+      <button class="buddy-btn" onclick="dismiss()">Got it</button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    const container = document.getElementById('container');
+    const messageEl = document.getElementById('message');
+    
+    // Make interactive on hover
+    container.addEventListener('mouseenter', () => {
+      ipcRenderer.send('set-interactive', true);
+    });
+    
+    container.addEventListener('mouseleave', () => {
+      ipcRenderer.send('set-interactive', false);
+    });
+    
+    function setMessage(text) {
+      messageEl.innerHTML = text;
+    }
+    
+    function captureAndAnalyze() {
+      setMessage('📷 Capturing screen...');
+      ipcRenderer.send('capture-screen');
+    }
+    
+    function dismiss() {
+      container.style.opacity = '0';
+      container.style.transform = 'scale(0.9)';
+      setTimeout(() => {
+        container.style.opacity = '1';
+        container.style.transform = 'scale(1)';
+        setMessage("I'll be here if you need me! 👋");
+      }, 2000);
+    }
+    
+    ipcRenderer.on('screen-captured', (event, dataUrl) => {
+      setMessage('🧠 Analyzing what you\'re looking at...');
+      // TODO: Send to vision API for analysis
+      setTimeout(() => {
+        setMessage("I can see you're working! Let me know if you need help with anything.");
+      }, 1500);
+    });
+    
+    ipcRenderer.on('follow-toggled', (event, following) => {
+      setMessage(following ? "Following your cursor again! 🎯" : "Staying put! Drag me if needed.");
+    });
+    
+    // Periodic suggestions (demo)
+    const tips = [
+      "Need a break? You've been working for a while.",
+      "Tip: ⌘⇧F toggles cursor following.",
+      "I can analyze your screen if you click '📸 What's this?'",
+      "Hey! I'm your cursor buddy. I'll pop up with suggestions as you work."
+    ];
+    
+    let tipIndex = 0;
+    setInterval(() => {
+      // Only show tips occasionally and randomly
+      if (Math.random() > 0.7) {
+        tipIndex = (tipIndex + 1) % tips.length;
+        setMessage(tips[tipIndex]);
+      }
+    }, 30000);
+  </script>
+</body>
+</html>
